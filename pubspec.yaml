@@ -1,0 +1,40 @@
+name: haven
+description: Haven — a privacy-focused local content and application blocker.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  go_router: ^16.0.0
+  provider: ^6.1.5
+  google_fonts: ^6.2.1
+  sqflite: ^2.4.2
+  path: ^1.9.1
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.3.5
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/branding/haven-logo.png
+  adaptive_icon_background: "#0A1628"
+  adaptive_icon_foreground: assets/branding/haven-logo.png
+  adaptive_icon_foreground_inset: 12
+  min_sdk_android: 24
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/blocklists/adult_domains.json
+    - assets/branding/haven-logo.png

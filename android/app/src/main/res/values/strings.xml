@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Haven uses Accessibility to detect blocked apps and blocked website addresses in your browser, then shows a blocking screen. Haven does not use a VPN, does not read passwords, and does not upload browsing history.</string>
+    <string name="device_admin_explanation">Enable Device Admin so uninstalling Haven requires an extra confirmation step while protection is on. You can disable this anytime in system settings.</string>
+    <string name="app_blocked_title">Application Blocked</string>
+    <string name="app_blocked_message">This application is currently blocked.</string>
+    <string name="site_blocked_title">Website Blocked</string>
+    <string name="site_blocked_message">This website is blocked.</string>
+    <string name="site_blocked_message_generic">This website is blocked.</string>
+    <string name="go_back">Go Back</string>
+    <string name="go_to_home">Go to Home Page</string>
+    <string name="app_info_gate_title">App settings protected</string>
+    <string name="app_info_gate_message">App info for Haven is locked so it cannot be uninstalled from here.\n\nGo Back, or enter the password to open App info for 5 minutes.</string>
+    <string name="app_info_password_hint">Password</string>
+    <string name="app_info_enter_password">Enter password</string>
+    <string name="app_info_wrong_password">Incorrect password</string>
+    <string name="app_info_unlocked_toast">App info unlocked for 5 minutes.</string>
+</resources>
