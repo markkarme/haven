@@ -332,6 +332,8 @@ object BrowserUrlInspector {
      */
     fun findBlockedAdultKeywordInVisibleContent(root: AccessibilityNodeInfo?): String? {
         if (root == null) return null
+        // User is interacting with the address bar/suggestions; don't block on suggestion text.
+        if (isAddressBarFocused(root)) return null
         // Only scan visible content on search-results pages.
         if (!isSearchResultsPage(root)) return null
         val texts = LinkedHashSet<String>()
@@ -339,6 +341,27 @@ object BrowserUrlInspector {
         for (text in texts) {
             val matched = findAdultKeywordIn(text)
             if (matched != null) return matched
+        }
+        return null
+    }
+
+    /**
+     * Scans visible search-result content for blocked domains (result links/snippets).
+     * Used to block search pages that surface blocked websites.
+     */
+    fun findBlockedDomainInVisibleSearchResults(
+        root: AccessibilityNodeInfo?,
+        rules: Set<String>,
+    ): String? {
+        if (root == null || rules.isEmpty()) return null
+        // Suggestions/history under a focused address bar should never trigger blocking.
+        if (isAddressBarFocused(root)) return null
+        if (!isSearchResultsPage(root)) return null
+        val texts = LinkedHashSet<String>()
+        collectVisibleTexts(root, texts, depth = 0)
+        for (text in texts) {
+            val blockedHost = findBlockedHostInCandidate(text, rules)
+            if (blockedHost != null) return blockedHost
         }
         return null
     }

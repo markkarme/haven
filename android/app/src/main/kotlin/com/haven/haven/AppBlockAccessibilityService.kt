@@ -93,6 +93,39 @@ class AppBlockAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow ?: return
         try {
             val rules = BlockerPrefs.getBlockedDomains(this)
+            if (BlockerPrefs.isAdultProtectionEnabled(this)) {
+                val visibleKeyword = BrowserUrlInspector.findBlockedAdultKeywordInVisibleContent(root)
+                if (visibleKeyword != null) {
+                    if (visibleKeyword == lastBlockedHost && now - lastSiteBlockAt < 2500) return
+                    lastBlockedHost = visibleKeyword
+                    lastSiteBlockAt = now
+
+                    BrowserNavigator.resetToHome(this, packageName)
+                    showBlockOverlay(
+                        reason = BlockOverlayActivity.REASON_SITE,
+                        detail = visibleKeyword,
+                        browserPackage = packageName,
+                    )
+                    return
+                }
+            }
+
+            val blockedDomainInResults =
+                BrowserUrlInspector.findBlockedDomainInVisibleSearchResults(root, rules)
+            if (blockedDomainInResults != null) {
+                if (blockedDomainInResults == lastBlockedHost && now - lastSiteBlockAt < 2500) return
+                lastBlockedHost = blockedDomainInResults
+                lastSiteBlockAt = now
+
+                BrowserNavigator.resetToHome(this, packageName)
+                showBlockOverlay(
+                    reason = BlockOverlayActivity.REASON_SITE,
+                    detail = blockedDomainInResults,
+                    browserPackage = packageName,
+                )
+                return
+            }
+
             val blockedHost = BrowserUrlInspector.findBlockedHostAfterEnter(root, rules) ?: return
             if (blockedHost == lastBlockedHost && now - lastSiteBlockAt < 2500) return
             lastBlockedHost = blockedHost
