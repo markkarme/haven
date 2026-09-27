@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-policies>
-        <!-- Required for the activation UI to appear. Haven does not call lockNow(). -->
+        <!-- Required for the Device Admin activation UI. Haven does not lock the phone. -->
         <force-lock />
     </uses-policies>
 </device-admin>

@@ -6,6 +6,7 @@ import '../../features/apps/installed_apps_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/permissions/permissions_screen.dart';
 import '../../features/settings/protection_settings_screen.dart';
+import '../../features/settings/vpn_exceptions_screen.dart';
 import '../../features/setup/initial_setup_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/websites/add_website_screen.dart';
@@ -60,6 +61,11 @@ GoRouter createAppRouter() {
         path: RouteNames.protectionSettings,
         name: 'protectionSettings',
         builder: (context, state) => const ProtectionSettingsScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.vpnExceptions,
+        name: 'vpnExceptions',
+        builder: (context, state) => const VpnExceptionsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

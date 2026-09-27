@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/routing/route_names.dart';
 import '../../core/state/app_state.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/status_badge.dart';
@@ -38,12 +40,25 @@ class ProtectionSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Website and app blocking use Accessibility. '
-                    'Uninstall protection locks Haven App info and uses Device Admin when enabled.',
+                    'Website blocking uses a local VPN that only filters DNS — '
+                    'your traffic never leaves the phone through Haven. '
+                    'App blocking and the uninstall lock use Usage access and '
+                    'Display over other apps.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                     ),
                   ),
+                  if (state.privateDnsBypass) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Private DNS is set to a custom provider, so websites skip '
+                      'Haven’s filter. Set Settings › Network › Private DNS to '
+                      '"Off" or "Automatic".',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -60,7 +75,7 @@ class ProtectionSettingsScreen extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: const Text('Enable protection'),
             subtitle: const Text(
-              'Uses Accessibility to block apps and listed websites in browsers.',
+              'Blocks listed websites in every browser and app using a local VPN.',
             ),
             value: state.protectionEnabled,
             onChanged: (value) => _onProtectionChanged(context, state, value),
@@ -76,10 +91,37 @@ class ProtectionSettingsScreen extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: const Text('Uninstall protection'),
             subtitle: const Text(
-              'Locks Haven App info in Settings / App management. Enable Device Admin when prompted.',
+              'Android refuses to uninstall Haven while it is a Device Admin. '
+              'Uninstall and deactivate screens ask for your password. '
+              'To uninstall, turn this off here first.',
             ),
             value: state.uninstallProtectionEnabled,
             onChanged: (value) => _onUninstallChanged(context, state, value),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.vpn_lock_outlined),
+            title: const Text('Keep protection always on'),
+            subtitle: const Text(
+              'In VPN settings, tap the gear next to Haven and turn on '
+              '"Always-on VPN". Leave "Block connections without VPN" OFF, '
+              'or the internet will stop working.',
+            ),
+            trailing: const Icon(Icons.open_in_new),
+            onTap: state.openVpnSettings,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.alt_route_outlined),
+            title: const Text('Apps that say "No internet"'),
+            subtitle: Text(
+              state.vpnExcludedPackages.isEmpty
+                  ? 'Some apps refuse to work while any VPN is on. '
+                      'Let them bypass Haven’s VPN.'
+                  : '${state.vpnExcludedPackages.length} app(s) bypass the VPN.',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(RouteNames.vpnExceptions),
           ),
           const Divider(height: 32),
           const SectionHeader(title: 'Appearance'),
@@ -124,12 +166,15 @@ class ProtectionSettingsScreen extends StatelessWidget {
         message: 'Enter the password to turn off protection.',
       );
       if (!ok || !context.mounted) return;
-    } else if (!state.accessibilityEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enable Accessibility permission first.')),
-      );
     }
     await state.setProtectionEnabled(value);
+    if (value && !state.vpnEnabled && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Allow the VPN connection so Haven can block websites.'),
+        ),
+      );
+    }
   }
 
   Future<void> _onAdultChanged(
@@ -163,4 +208,5 @@ class ProtectionSettingsScreen extends StatelessWidget {
     }
     await state.setUninstallProtectionEnabled(value);
   }
+
 }

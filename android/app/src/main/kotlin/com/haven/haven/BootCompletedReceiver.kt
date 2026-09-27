@@ -13,6 +13,6 @@ class BootCompletedReceiver : BroadcastReceiver() {
         ) {
             return
         }
-        ProtectionController.restoreAfterBoot(context.applicationContext)
+        BootAndRestartReceiver.handleRestart(context.applicationContext)
     }
 }

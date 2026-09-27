@@ -32,6 +32,7 @@ class AppState extends ChangeNotifier {
 
   List<BlockedWebsite> websites = const [];
   List<BlockedApp> blockedApps = const [];
+  Set<String> vpnExcludedPackages = const {};
 
   int blockedWebsiteCount = 0;
   int blockedAppCount = 0;
@@ -39,8 +40,11 @@ class AppState extends ChangeNotifier {
   bool uninstallProtectionEnabled = false;
   bool adultProtectionEnabled = true;
 
-  bool accessibilityEnabled = false;
   bool vpnEnabled = false;
+  bool vpnRunning = false;
+  bool privateDnsBypass = false;
+  bool usageAccessEnabled = false;
+  bool overlayEnabled = false;
   bool deviceAdminEnabled = false;
   bool notificationEnabled = false;
   bool nativeProtectionActive = false;
@@ -75,18 +79,35 @@ class AppState extends ChangeNotifier {
     blockedApps = await _apps.getAll();
     blockedWebsiteCount = await _websites.countEnabled(includeAdult: false);
     blockedAppCount = await _apps.countEnabled();
+    vpnExcludedPackages = (await _native.getVpnExcludedApps()).toSet();
+    notifyListeners();
+  }
+
+  /// Excluded apps skip website blocking entirely — callers must confirm the password.
+  Future<void> setVpnExcluded(String packageName, bool excluded) async {
+    final next = {...vpnExcludedPackages};
+    if (excluded) {
+      next.add(packageName);
+    } else {
+      next.remove(packageName);
+    }
+    vpnExcludedPackages = next;
+    await _native.setVpnExcludedApps(next.toList());
     notifyListeners();
   }
 
   Future<void> refreshPermissions() async {
     final status = await _native.getProtectionStatus();
-    accessibilityEnabled = status.accessibilityEnabled;
-    vpnEnabled = false;
+    vpnEnabled = status.vpnEnabled;
+    vpnRunning = status.vpnRunning;
+    privateDnsBypass = status.privateDnsBypass;
+    usageAccessEnabled = status.usageAccessEnabled;
+    overlayEnabled = status.overlayEnabled;
     deviceAdminEnabled = status.deviceAdminEnabled;
     notificationEnabled = status.notificationEnabled;
     nativeProtectionActive = status.isActive;
-    if (!accessibilityEnabled) {
-      accessibilityEnabled = await _native.getAccessibilityStatus();
+    if (!vpnEnabled) {
+      vpnEnabled = await _native.getVpnStatus();
     }
     if (!deviceAdminEnabled) {
       deviceAdminEnabled = await _native.getDeviceAdminStatus();
@@ -154,12 +175,22 @@ class AppState extends ChangeNotifier {
     await _persistSettings();
     await _syncRulesToNative();
     if (value) {
+      await _native.requestVpnPermission();
       await _native.startProtection();
     } else {
       await _native.stopProtection();
     }
-    await refreshPermissions();
+    await _awaitVpnRunning(value);
     notifyListeners();
+  }
+
+  /// The VPN service starts/stops asynchronously; poll briefly so the UI shows the real state.
+  Future<void> _awaitVpnRunning(bool expected) async {
+    for (var i = 0; i < 6; i++) {
+      await refreshPermissions();
+      if (vpnRunning == expected || !vpnEnabled) return;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 
   Future<void> setUninstallProtectionEnabled(bool value) async {
@@ -168,6 +199,10 @@ class AppState extends ChangeNotifier {
     await _syncRulesToNative();
     if (value && !deviceAdminEnabled) {
       await _native.requestDeviceAdmin();
+      await refreshPermissions();
+    } else if (!value && deviceAdminEnabled) {
+      // The UI already confirmed the password; this is the supported uninstall path.
+      await _native.removeDeviceAdmin();
       await refreshPermissions();
     }
     notifyListeners();
@@ -206,19 +241,18 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  /// Turns protection on and syncs rules for Accessibility-based blocking.
+  /// Turns protection on and makes sure the VPN website filter is running.
   Future<void> ensureWebsiteBlockingActive() async {
     if (!protectionEnabled) {
       protectionEnabled = true;
       await _persistSettings();
     }
     await _syncRulesToNative();
-    await _native.startProtection();
-    await refreshPermissions();
-    if (!accessibilityEnabled) {
-      await _native.requestAccessibility();
-      await refreshPermissions();
+    if (!vpnEnabled) {
+      await _native.requestVpnPermission();
     }
+    await _native.startProtection();
+    await _awaitVpnRunning(true);
     notifyListeners();
   }
 
@@ -257,10 +291,25 @@ class AppState extends ChangeNotifier {
     await _syncAndStart();
   }
 
-  Future<void> requestAccessibility() async {
-    await _native.requestAccessibility();
-    await refreshPermissions();
+  Future<void> requestVpn() async {
+    final granted = await _native.requestVpnPermission();
+    if (granted && protectionEnabled) {
+      await _native.startProtection();
+      await _awaitVpnRunning(true);
+    } else {
+      await refreshPermissions();
+    }
   }
+
+  Future<void> openVpnSettings() => _native.openVpnSettings();
+
+  /// Status refreshes when the user returns from Settings (app lifecycle resume).
+  Future<void> requestUsageAccess() => _native.requestUsageAccess();
+
+  Future<void> requestOverlay() => _native.requestOverlay();
+
+  /// App blocking and the uninstall gate need Usage access and overlay permission.
+  bool get appMonitorReady => usageAccessEnabled && overlayEnabled;
 
   Future<void> requestDeviceAdmin() async {
     await _native.requestDeviceAdmin();
@@ -272,13 +321,9 @@ class AppState extends ChangeNotifier {
     await refreshPermissions();
   }
 
-  bool get allRequiredPermissionsReady => accessibilityEnabled;
+  bool get allRequiredPermissionsReady => vpnEnabled;
 
-  String get protectionLabel =>
-      protectionEnabled && (nativeProtectionActive || accessibilityEnabled)
-          ? 'ACTIVE'
-          : 'INACTIVE';
+  String get protectionLabel => isProtectionActive ? 'ACTIVE' : 'INACTIVE';
 
-  bool get isProtectionActive =>
-      protectionEnabled && (nativeProtectionActive || accessibilityEnabled);
+  bool get isProtectionActive => protectionEnabled && vpnRunning;
 }

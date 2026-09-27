@@ -40,3 +40,24 @@ flutter run
 - `lib/features/` — screens
 - `lib/services/native/` — MethodChannel bridge
 - `android/.../kotlin/com/haven/haven/` — native services
+
+## Google Play prep
+
+Release signing is configured via `android/key.properties` (gitignored).
+
+```bash
+# Build the Play upload file (AAB)
+flutter build appbundle --release
+# → build/app/outputs/bundle/release/app-release.aab
+```
+
+Store listing draft + privacy policy HTML:
+
+- `store/PLAY_LISTING.md`
+- `store/privacy-policy.html` — host publicly, then paste the URL in Play Console
+
+**Back up offline** (never commit):
+
+- `android/haven-upload-keystore.jks`
+- `android/key.properties`
+- `android/keystore-credentials.txt`

@@ -22,23 +22,44 @@ class PermissionsScreen extends StatelessWidget {
           const SectionHeader(
             title: 'Permission setup',
             subtitle:
-                'Haven blocks apps and websites with Accessibility only — no VPN. '
-                'Grant Accessibility so blocking works while the UI is closed.',
+                'Grant VPN, Usage access, Display over other apps, and Device Admin '
+                'for full protection.',
           ),
           const SizedBox(height: 20),
           PermissionTile(
-            title: 'Accessibility',
+            title: 'VPN (website filter)',
             reason:
-                'Required to detect blocked apps and blocked website addresses in browsers.',
-            enabled: state.accessibilityEnabled,
-            actionLabel: 'Enable Accessibility',
-            onEnable: () => state.requestAccessibility(),
+                'Required. Haven runs a local VPN on this phone that only checks '
+                'website names (DNS) against your blocklist. Your traffic is not '
+                'sent to any Haven server.',
+            enabled: state.vpnEnabled,
+            actionLabel: 'Allow VPN',
+            onEnable: () => state.requestVpn(),
+          ),
+          PermissionTile(
+            title: 'Usage access',
+            reason:
+                'Required for app blocking and uninstall protection. Lets Haven '
+                'see which app is open — it never reads what is on the screen.',
+            enabled: state.usageAccessEnabled,
+            actionLabel: 'Allow usage access',
+            onEnable: () => state.requestUsageAccess(),
+          ),
+          PermissionTile(
+            title: 'Display over other apps',
+            reason:
+                'Required so Haven can show the block screen and the password '
+                'lock when a blocked app or the uninstall screen opens.',
+            enabled: state.overlayEnabled,
+            actionLabel: 'Allow display over apps',
+            onEnable: () => state.requestOverlay(),
           ),
           PermissionTile(
             title: 'Device Administrator',
             reason:
-                'Optional. Makes uninstalling harder while protection is on. '
-                'You can always deactivate Device Admin in system settings.',
+                'Required for uninstall protection. Android will not uninstall '
+                'Haven while it is a Device Admin, and turning it off asks for '
+                'your Haven password.',
             enabled: state.deviceAdminEnabled,
             actionLabel: 'Enable Device Admin',
             onEnable: () => state.requestDeviceAdmin(),

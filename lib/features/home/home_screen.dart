@@ -107,8 +107,12 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _PermissionStatusRow(
-              label: 'Accessibility',
-              enabled: state.accessibilityEnabled,
+              label: 'VPN website filter',
+              enabled: state.vpnRunning,
+            ),
+            _PermissionStatusRow(
+              label: 'App blocking (usage access + overlay)',
+              enabled: state.appMonitorReady,
             ),
             _PermissionStatusRow(
               label: 'Device Admin',

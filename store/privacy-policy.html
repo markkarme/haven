@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Haven Privacy Policy</title>
+  <style>
+    :root {
+      --bg: #0a1628;
+      --text: #e8eef7;
+      --muted: #9db0c9;
+      --accent: #6eb6ff;
+    }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #14325a 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    main {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+    }
+    h1 { font-size: 2rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.2rem; margin-top: 2rem; }
+    p, li { color: var(--muted); }
+    a { color: var(--accent); }
+    .meta { font-size: 0.95rem; color: var(--muted); margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Haven Privacy Policy</h1>
+    <p class="meta">Last updated: September 22, 2026</p>
+
+    <p>
+      Haven (“the App”) is a privacy-focused Android application that helps you
+      block apps and websites on your device. This policy explains what Haven
+      does and does not do with your information.
+    </p>
+
+    <h2>Summary</h2>
+    <ul>
+      <li>Haven runs locally on your device.</li>
+      <li>Haven does not create an account.</li>
+      <li>Haven does not upload browsing history, passwords, or blocked content to a server.</li>
+      <li>
+        Haven uses Android’s VpnService to run a local, on-device DNS filter.
+        Only website name lookups (DNS) pass through it; blocked names are
+        answered on the device. Allowed lookups are forwarded to a public DNS
+        resolver (Cloudflare 1.1.1.1, or 1.1.1.3 when adult protection is on) or
+        your network’s DNS. All other traffic goes directly to the internet and
+        is never routed through Haven or any Haven server.
+      </li>
+    </ul>
+
+    <h2>Data we collect</h2>
+    <p>
+      Haven does <strong>not</strong> collect personal data for analytics,
+      advertising, or cloud storage. Settings, block lists, and related rules
+      are stored on your device (for example in local SQLite storage).
+    </p>
+
+    <h2>Permissions and why they are used</h2>
+    <ul>
+      <li>
+        <strong>Accessibility service</strong> — to detect when a blocked app
+        is opened and to read website addresses shown in supported browser
+        address bars so Haven can show a blocking screen. Haven does not use
+        Accessibility to read passwords or to upload browsing history.
+      </li>
+      <li>
+        <strong>Device Admin (optional)</strong> — to add an extra confirmation
+        step before uninstalling Haven while protection is enabled. You can
+        disable this anytime in system settings.
+      </li>
+      <li>
+        <strong>Query installed apps</strong> — so you can choose which apps
+        to block from a list of apps installed on your device.
+      </li>
+      <li>
+        <strong>Notifications (optional)</strong> — to show protection-related
+        status when you allow it.
+      </li>
+      <li>
+        <strong>Boot completed</strong> — to restore protection after reboot
+        when you previously left protection enabled.
+      </li>
+    </ul>
+
+    <h2>Internet access</h2>
+    <p>
+      The App may request network access for normal Android / Flutter platform
+      behavior (for example loading fonts). Haven does not send your browsing
+      history or block-list activity to Haven servers, because Haven does not
+      operate a user-data backend.
+    </p>
+
+    <h2>Children</h2>
+    <p>
+      Haven is not directed at children under 13. If you use Haven for family
+      safety, the device owner / parent remains responsible for configuration
+      and supervision.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      We may update this policy when the App changes. The “Last updated” date
+      at the top will change when we do.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions about this policy:
+      <a href="mailto:mark.karme9999@gmail.com">mark.karme9999@gmail.com</a>
+      <!-- Replace with your preferred public contact email before publishing. -->
+    </p>
+  </main>
+</body>
+</html>

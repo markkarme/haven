@@ -6,21 +6,36 @@ import '../../core/constants/app_constants.dart';
 class ProtectionStatus {
   const ProtectionStatus({
     required this.isActive,
-    required this.accessibilityEnabled,
     required this.vpnEnabled,
     required this.deviceAdminEnabled,
+    this.vpnRunning = false,
+    this.privateDnsBypass = false,
+    this.usageAccessEnabled = false,
+    this.overlayEnabled = false,
     this.notificationEnabled = false,
   });
 
+  /// Usage Access: lets Haven see which app is in front (app blocking, uninstall gate).
+  final bool usageAccessEnabled;
+
+  /// "Display over other apps": lets Haven show block screens from the background.
+  final bool overlayEnabled;
+
   final bool isActive;
-  final bool accessibilityEnabled;
+
+  /// VPN consent granted.
   final bool vpnEnabled;
+
+  /// Website filter tunnel is up right now.
+  final bool vpnRunning;
+
+  /// Strict Private DNS is set, so lookups skip the website filter.
+  final bool privateDnsBypass;
   final bool deviceAdminEnabled;
   final bool notificationEnabled;
 
   factory ProtectionStatus.inactive() => const ProtectionStatus(
         isActive: false,
-        accessibilityEnabled: false,
         vpnEnabled: false,
         deviceAdminEnabled: false,
       );
@@ -90,11 +105,6 @@ class BlockerNativeService {
     }
   }
 
-  Future<bool> getAccessibilityStatus() =>
-      _invokeBool('getAccessibilityStatus');
-
-  Future<void> requestAccessibility() => _invokeVoid('requestAccessibility');
-
   Future<bool> getVpnStatus() => _invokeBool('getVpnStatus');
 
   /// Returns true if the VPN permission was granted (or already held).
@@ -109,9 +119,44 @@ class BlockerNativeService {
     }
   }
 
+  /// Packages that bypass Haven's VPN (for apps that refuse to run behind a VPN).
+  Future<List<String>> getVpnExcludedApps() async {
+    try {
+      final result =
+          await _channel.invokeMethod<List<dynamic>>('getVpnExcludedApps');
+      return result?.map((e) => e.toString()).toList() ?? const [];
+    } on MissingPluginException {
+      return const [];
+    } on PlatformException {
+      return const [];
+    }
+  }
+
+  Future<void> setVpnExcludedApps(List<String> packages) async {
+    try {
+      await _channel.invokeMethod<void>('setVpnExcludedApps', {
+        'packages': packages,
+      });
+    } on MissingPluginException {
+      // Native handler unavailable.
+    } on PlatformException {
+      // Never crash the UI on sync failure.
+    }
+  }
+
+  Future<void> requestUsageAccess() => _invokeVoid('requestUsageAccess');
+
+  Future<void> requestOverlay() => _invokeVoid('requestOverlay');
+
+  /// Opens Android VPN settings (for Always-on VPN).
+  Future<void> openVpnSettings() => _invokeVoid('openVpnSettings');
+
   Future<bool> getDeviceAdminStatus() => _invokeBool('getDeviceAdminStatus');
 
   Future<void> requestDeviceAdmin() => _invokeVoid('requestDeviceAdmin');
+
+  /// Haven removes its own Device Admin so it can be uninstalled normally.
+  Future<void> removeDeviceAdmin() => _invokeVoid('removeDeviceAdmin');
 
   Future<bool> getNotificationStatus() =>
       _invokeBool('getNotificationStatus');
@@ -126,8 +171,11 @@ class BlockerNativeService {
       if (result == null) return ProtectionStatus.inactive();
       return ProtectionStatus(
         isActive: result['isActive'] as bool? ?? false,
-        accessibilityEnabled: result['accessibilityEnabled'] as bool? ?? false,
         vpnEnabled: result['vpnEnabled'] as bool? ?? false,
+        vpnRunning: result['vpnRunning'] as bool? ?? false,
+        privateDnsBypass: result['privateDnsBypass'] as bool? ?? false,
+        usageAccessEnabled: result['usageAccessEnabled'] as bool? ?? false,
+        overlayEnabled: result['overlayEnabled'] as bool? ?? false,
         deviceAdminEnabled: result['deviceAdminEnabled'] as bool? ?? false,
         notificationEnabled: result['notificationEnabled'] as bool? ?? false,
       );

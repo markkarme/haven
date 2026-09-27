@@ -47,8 +47,8 @@ class _AddWebsiteScreenState extends State<AddWebsiteScreen> {
                   decoration: const InputDecoration(
                     hintText: 'example.com or *.example.com',
                     helperText:
-                        'No VPN is used. Haven watches browser address bars via Accessibility '
-                        'and only blocks domains you added — other sites are untouched.\n'
+                        'Blocked in every browser and app through Haven’s local VPN. '
+                        'Subdomains are blocked too — other sites are untouched.\n'
                         'Also block the site’s app (e.g. X/Twitter) from Blocked Apps if needed.',
                     helperMaxLines: 6,
                   ),
@@ -56,11 +56,11 @@ class _AddWebsiteScreenState extends State<AddWebsiteScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  state.accessibilityEnabled && state.protectionEnabled
-                      ? 'Accessibility blocking: ready'
-                      : 'Enable Accessibility + Protection so blocked sites are enforced.',
+                  state.isProtectionActive
+                      ? 'Website filter: running'
+                      : 'Allow the VPN and turn on Protection so blocked sites are enforced.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: state.accessibilityEnabled && state.protectionEnabled
+                        color: state.isProtectionActive
                             ? Theme.of(context).colorScheme.primary
                             : Theme.of(context).colorScheme.error,
                       ),
@@ -90,9 +90,9 @@ class _AddWebsiteScreenState extends State<AddWebsiteScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            state.accessibilityEnabled
+            state.isProtectionActive
                 ? message
-                : '$message Enable Accessibility for Haven to enforce it.',
+                : '$message Allow the VPN so Haven can enforce it.',
           ),
         ),
       );
@@ -107,9 +107,10 @@ class _AddWebsiteScreenState extends State<AddWebsiteScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          state.accessibilityEnabled
-              ? 'Saved. Open the site in Chrome — Haven will show a block screen.'
-              : 'Saved. Enable Accessibility so website blocking can run.',
+          state.isProtectionActive
+              ? 'Saved. The site will no longer load (a browser may need a moment '
+                  'to forget cached pages).'
+              : 'Saved. Allow the VPN so website blocking can run.',
         ),
       ),
     );

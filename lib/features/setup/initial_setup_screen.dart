@@ -41,13 +41,14 @@ class InitialSetupScreen extends StatelessWidget {
                 icon: Icons.language,
                 title: 'Website blocking',
                 body:
-                    'Detects blocked addresses in browsers via Accessibility — no VPN, other sites stay normal.',
+                    'A local VPN filters website names on your phone — works in every '
+                    'browser, and banking apps keep working.',
               ),
               const _SetupPoint(
                 icon: Icons.apps,
                 title: 'App blocking',
                 body:
-                    'Detect blocked apps via Accessibility and show a full-screen block.',
+                    'Detect blocked apps with Usage access and show a full-screen block.',
               ),
               const _SetupPoint(
                 icon: Icons.lock_outline,

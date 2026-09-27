@@ -167,17 +167,26 @@ abstract final class AppTheme {
   }
 
   static ThemeData _applyTypography(ThemeData base) {
-    final textTheme = GoogleFonts.dmSansTextTheme(base.textTheme).copyWith(
+    final t = GoogleFonts.dmSansTextTheme(base.textTheme);
+    // Pass textStyle so overrides keep the theme's text colors.
+    final textTheme = t.copyWith(
       displayLarge: GoogleFonts.outfit(
+        textStyle: t.displayLarge,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
       ),
-      displayMedium: GoogleFonts.outfit(fontWeight: FontWeight.w700),
-      headlineLarge: GoogleFonts.outfit(fontWeight: FontWeight.w700),
-      headlineMedium: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-      headlineSmall: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-      titleLarge: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-      titleMedium: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
+      displayMedium:
+          GoogleFonts.outfit(textStyle: t.displayMedium, fontWeight: FontWeight.w700),
+      headlineLarge:
+          GoogleFonts.outfit(textStyle: t.headlineLarge, fontWeight: FontWeight.w700),
+      headlineMedium:
+          GoogleFonts.outfit(textStyle: t.headlineMedium, fontWeight: FontWeight.w600),
+      headlineSmall:
+          GoogleFonts.outfit(textStyle: t.headlineSmall, fontWeight: FontWeight.w600),
+      titleLarge:
+          GoogleFonts.outfit(textStyle: t.titleLarge, fontWeight: FontWeight.w600),
+      titleMedium:
+          GoogleFonts.dmSans(textStyle: t.titleMedium, fontWeight: FontWeight.w600),
     );
 
     return base.copyWith(textTheme: textTheme);

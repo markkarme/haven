@@ -95,12 +95,7 @@ object BrowserUrlInspector {
     )
 
     fun isBrowserPackage(packageName: String): Boolean =
-        BROWSER_PACKAGES.contains(packageName) ||
-            packageName.contains("browser", ignoreCase = true) ||
-            packageName.contains("internet", ignoreCase = true) ||
-            packageName.contains("webview", ignoreCase = true) ||
-            packageName.contains("chrome", ignoreCase = true) ||
-            packageName.contains("firefox", ignoreCase = true)
+        BROWSER_PACKAGES.contains(packageName)
 
     fun findBlockedHost(root: AccessibilityNodeInfo?, rules: Set<String>): String? {
         if (root == null || rules.isEmpty()) return null

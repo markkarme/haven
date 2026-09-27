@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">Haven uses Accessibility to detect blocked apps and blocked website addresses in your browser, then shows a blocking screen. Haven does not use a VPN, does not read passwords, and does not upload browsing history.</string>
+    <string name="device_admin_disable_warning">Haven protection will stop. Enter the Haven password to continue.</string>
+    <string name="vpn_session_name">Haven website filter</string>
+    <string name="vpn_notification_title">Haven protection is on</string>
+    <string name="vpn_notification_text">Blocking listed websites on this device.</string>
+    <string name="guard_notification_text">Uninstall and app protection stay on if Haven is closed.</string>
+    <string name="protection_channel_name">Haven Protection Service</string>
+    <string name="protection_channel_description">Runs background app blocker and uninstall protection</string>
+    <string name="protection_notification_title">Haven protection active</string>
+    <string name="protection_notification_text">Keeping your device protected.</string>
+    <string name="vpn_stopped_title">Haven website protection stopped</string>
+    <string name="vpn_stopped_text">Another VPN took over or the VPN was disconnected. Tap to turn protection back on.</string>
+    <string name="vpn_channel_status">Protection status</string>
+    <string name="vpn_channel_blocked">Blocked websites</string>
     <string name="device_admin_explanation">Enable Device Admin so uninstalling Haven requires an extra confirmation step while protection is on. You can disable this anytime in system settings.</string>
     <string name="app_blocked_title">Application Blocked</string>
     <string name="app_blocked_message">This application is currently blocked.</string>
@@ -10,7 +22,7 @@
     <string name="go_back">Go Back</string>
     <string name="go_to_home">Go to Home Page</string>
     <string name="app_info_gate_title">App settings protected</string>
-    <string name="app_info_gate_message">App info for Haven is locked so it cannot be uninstalled from here.\n\nGo Back, or enter the password to open App info for 5 minutes.</string>
+    <string name="app_info_gate_message">App info for Haven is locked so it cannot be uninstalled from here.\n\nEnter the password to continue, or tap Go Back to cancel.</string>
     <string name="app_info_password_hint">Password</string>
     <string name="app_info_enter_password">Enter password</string>
     <string name="app_info_wrong_password">Incorrect password</string>

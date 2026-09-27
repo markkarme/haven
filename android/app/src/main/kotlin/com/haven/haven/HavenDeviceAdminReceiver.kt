@@ -12,4 +12,15 @@ class HavenDeviceAdminReceiver : DeviceAdminReceiver() {
     override fun onDisabled(context: Context, intent: Intent) {
         BlockerPrefs.setUninstallProtectionEnabled(context, false)
     }
+
+    /** Deactivation is the step before uninstall. Show the password screen — do not lock. */
+    override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
+        if (BlockerPrefs.shouldGuardAppInfo(context) && !BlockerPrefs.isAppInfoUnlocked(context)) {
+            BlockerPrefs.markRemovalAttempt(context)
+            ProtectionController.showUninstallGate(context)
+            ProtectionController.startGuard(context)
+            ProtectionController.scheduleRestart(context, 800)
+        }
+        return context.getString(R.string.device_admin_disable_warning)
+    }
 }

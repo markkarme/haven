@@ -9,4 +9,5 @@ abstract final class RouteNames {
   static const String blockedApps = '/blocked-apps';
   static const String permissions = '/permissions';
   static const String protectionSettings = '/protection-settings';
+  static const String vpnExceptions = '/vpn-exceptions';
 }
