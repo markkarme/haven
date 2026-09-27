@@ -21,11 +21,10 @@ object BlockerPrefs {
     private const val KEY_UNINSTALL_GATE_OPEN = "uninstall_gate_open"
     private const val KEY_GATE_OPEN_AT = "uninstall_gate_open_at"
     private const val REMOVAL_FILE = "removal_attempt"
-    private const val GATE_SHOW_COOLDOWN_MS = 150L
-    private const val GATE_RESHOW_COOLDOWN_MS = 100L
+    private const val GATE_SHOW_COOLDOWN_MS = 120L
+    private const val GATE_RESHOW_COOLDOWN_MS = 80L
     private const val GATE_USER_DISMISS_MS = 12_000L
-    /** Short window so a killed gate cannot block re-show for long. */
-    private const val GATE_OPEN_STALE_MS = 2_500L
+    private const val GATE_OPEN_STALE_MS = 8_000L
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -117,15 +116,15 @@ object BlockerPrefs {
         editor.putBoolean(KEY_UNINSTALL_GATE_OPEN, open).commit()
     }
 
-    fun isUninstallGateOpen(context: Context): Boolean {
+    fun isUninstallGateOpen(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_UNINSTALL_GATE_OPEN, false)
+
+    /** True when prefs say open but the marker is old (gate process likely died). */
+    fun isUninstallGateOpenStale(context: Context): Boolean {
         val p = prefs(context)
         if (!p.getBoolean(KEY_UNINSTALL_GATE_OPEN, false)) return false
         val openedAt = p.getLong(KEY_GATE_OPEN_AT, 0L)
-        if (openedAt > 0L && System.currentTimeMillis() - openedAt > GATE_OPEN_STALE_MS) {
-            setUninstallGateOpen(context, false)
-            return false
-        }
-        return true
+        return openedAt > 0L && System.currentTimeMillis() - openedAt > GATE_OPEN_STALE_MS
     }
 
     /** Cross-process debounce. Uses a shorter cooldown while an uninstall attempt is active. */

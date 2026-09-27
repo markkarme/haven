@@ -9,9 +9,8 @@ import android.os.Build
 /**
  * Cross-process show/hide for the uninstall password gate.
  *
- * [AppMonitor] / [ProtectionService] own the gate in `:guard` so a Recents swipe of
- * the main Haven task cannot dismiss the password UI. Other processes only request
- * show/hide; they never attach the overlay themselves.
+ * The visible gate is [AppInfoGateActivity] (draws over Settings / installer on ColorOS).
+ * [UninstallGateOverlay] is an unkillable backup owned by `:guard`.
  */
 object UninstallGateCommands {
     const val ACTION_SHOW = "com.haven.haven.action.SHOW_UNINSTALL_GATE"
@@ -32,7 +31,6 @@ object UninstallGateCommands {
 
     fun requestHide(context: Context) {
         val app = context.applicationContext
-        // Hide in this process (no-op if the gate lives elsewhere).
         hideLocally(app)
         app.sendBroadcast(Intent(ACTION_HIDE).setPackage(app.packageName))
         ProtectionService.requestHideGate(app)
@@ -40,13 +38,12 @@ object UninstallGateCommands {
 
     fun showLocally(context: Context, reshow: Boolean, urgent: Boolean) {
         if (BlockerPrefs.isGateUserDismissed(context)) return
-        if (UninstallGateOverlay.isShowing) return
-        // AppInfoGateActivity.isShowing is only valid in the main process.
-        if (AppInfoGateActivity.isShowing) return
+        // Activity first: TYPE_APPLICATION_OVERLAY is often hidden under ColorOS Settings
+        // until the user leaves — that looked like "shows only when I go back".
+        AppInfoGateActivity.show(context, reshow, urgent = true)
+        // Overlay backup in `:guard`: cannot be swiped away from Recents.
         if (ProtectionController.canDrawOverlays(context)) {
-            UninstallGateOverlay.show(context, reshow)
-        } else {
-            AppInfoGateActivity.show(context, reshow, urgent = urgent)
+            UninstallGateOverlay.show(context, reshow = true, force = true)
         }
     }
 

@@ -22,23 +22,45 @@ object AppInfoGuard {
             p.contains("heytap") ||
             p.contains("permissioncontroller") ||
             p.contains("packageinstaller") ||
-            p.contains("appdetail")
+            p.contains("appdetail") ||
+            p.contains("appmanager")
     }
 
     fun isAppInfoActivityClass(className: String): Boolean {
         val cls = className.lowercase(Locale.US)
-        return cls.contains("installedappdetails") ||
+        if (cls.isEmpty()) return false
+        // Explicit App info / application details screens (AOSP + OEM).
+        if (cls.contains("installedappdetails") ||
             cls.contains("appinfodetails") ||
             cls.contains("applicationdetails") ||
             cls.contains("applicationsummary") ||
             cls.contains("appdetailsactivity") ||
+            cls.contains("appdetail") ||
             cls.contains("modularityappdetails") ||
             cls.contains("spa.app.appinfo") ||
             cls.contains("oplus.settings.feature.application") ||
-            cls.contains("subsettings") ||
-            (cls.contains("appinfo") &&
-                !cls.contains("accessibility") &&
-                !cls.contains("deviceadmin"))
+            cls.contains("applicationsettings") ||
+            cls.contains("installedapp") ||
+            cls.contains("manageapplications") ||
+            cls.contains("applicationinfo") ||
+            cls.contains("appinfodetail") ||
+            cls.contains("subsettings")
+        ) {
+            return true
+        }
+        // ColorOS / Oppo often use generic Settings hosts with an "app" path.
+        if (cls.contains("appinfo") &&
+            !cls.contains("accessibility") &&
+            !cls.contains("deviceadmin")
+        ) {
+            return true
+        }
+        if (cls.contains(".applications.") &&
+            (cls.contains("detail") || cls.contains("info") || cls.contains("app"))
+        ) {
+            return true
+        }
+        return false
     }
 
     fun isAppInfoScreenByUsage(packageName: String, className: String): Boolean {

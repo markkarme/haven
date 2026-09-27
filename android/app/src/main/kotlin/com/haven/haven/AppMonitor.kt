@@ -12,7 +12,8 @@ import java.util.Locale
 
 /**
  * Usage Access foreground watcher. Blocks listed apps and shows the password
- * dialog on Package Installer, Settings App info, Phone Manager, and uninstall flows.
+ * dialog as soon as App info (or an uninstall intent) appears — before the
+ * uninstall confirmation wizard is usable.
  */
 class AppMonitor(private val context: Context) {
 
@@ -30,6 +31,7 @@ class AppMonitor(private val context: Context) {
     private var lastEventTime = 0L
     private var removalGuardStarted = false
     private var wasOnProtectedScreen = false
+    private var lastBringToFrontAt = 0L
     private val tick = object : Runnable {
         override fun run() {
             val delay = try {
@@ -67,7 +69,6 @@ class AppMonitor(private val context: Context) {
 
         val now = System.currentTimeMillis()
         ingestUsageEvents(now)
-        refreshForegroundDuringRemoval(now)
 
         val activePkg = foregroundPackage ?: return ACTIVE_MS
         val activeCls = foregroundClass.orEmpty()
@@ -97,7 +98,9 @@ class AppMonitor(private val context: Context) {
             val resumed = type == UsageEvents.Event.MOVE_TO_FOREGROUND ||
                 type == UsageEvents.Event.ACTIVITY_RESUMED
 
-            // Catch Package Installer the instant any usage event fires (before ACTIVITY_RESUMED).
+            // Any event from the installer / uninstall UI — catch before ACTIVITY_RESUMED.
+            // Do NOT keep sticky "hottest installer" after Cancel; that caused the gate
+            // to appear when leaving the wizard instead of before entering it.
             if (isInstallerPackage(pkgLower) || isSystemUninstallUi(pkgLower, cls)) {
                 if (event.timeStamp >= lastEventTime) {
                     lastEventTime = event.timeStamp
@@ -107,31 +110,23 @@ class AppMonitor(private val context: Context) {
                 continue
             }
 
+            // App info: treat any event (not only RESUMED) so ColorOS reports sooner.
+            if (AppInfoGuard.isAppInfoScreenByUsage(pkgLower, cls) ||
+                (isAppManagerPackage(pkgLower) && AppInfoGuard.isAppInfoActivityClass(cls))
+            ) {
+                if (event.timeStamp >= lastEventTime) {
+                    lastEventTime = event.timeStamp
+                    foregroundPackage = pkg
+                    foregroundClass = cls
+                }
+                continue
+            }
+
             if (resumed && event.timeStamp >= lastEventTime) {
                 lastEventTime = event.timeStamp
                 foregroundPackage = pkg
                 foregroundClass = cls
             }
-        }
-
-        hottestInstallerPackage(now)?.let { pkg ->
-            foregroundPackage = pkg
-            if (foregroundClass.isNullOrEmpty() ||
-                !foregroundClass.orEmpty().contains("uninstall", ignoreCase = true)
-            ) {
-                foregroundClass = "UninstallerActivity"
-            }
-        }
-    }
-
-    /** Activity fallback only: Usage Access may still report Haven after the gate closes. */
-    private fun refreshForegroundDuringRemoval(now: Long) {
-        if (foregroundPackage != context.packageName) return
-        if (!BlockerPrefs.isRemovalAttemptActive(context)) return
-
-        hottestInstallerPackage(now, RECENT_INSTALLER_MS)?.let { pkg ->
-            foregroundPackage = pkg
-            foregroundClass = "UninstallerActivity"
         }
     }
 
@@ -164,17 +159,22 @@ class AppMonitor(private val context: Context) {
             }
             val entering = !wasOnProtectedScreen
             wasOnProtectedScreen = true
-            // Overlay is process-local and authoritative. Activity lives in main — use prefs.
-            if (!UninstallGateOverlay.isShowing) {
-                val gateMarkedOpen = BlockerPrefs.isUninstallGateOpen(context)
-                if (!gateMarkedOpen || entering) {
-                    val urgent = isUrgentUninstallScreen(pkg, cls)
-                    ProtectionController.showUninstallGate(
-                        context,
-                        reshow = gateMarkedOpen || !entering,
-                        urgent = urgent,
-                    )
-                }
+
+            // Always urgent: Activity must appear over Settings / installer (overlay alone
+            // is often hidden under ColorOS system apps until the user leaves).
+            ProtectionController.showUninstallGate(
+                context,
+                reshow = !entering,
+                urgent = true,
+            )
+
+            // Keep the gate in front while App info / installer is still the target.
+            val now = System.currentTimeMillis()
+            if (!entering && now - lastBringToFrontAt >= BRING_TO_FRONT_MS) {
+                lastBringToFrontAt = now
+                AppInfoGateActivity.bringToFront(context)
+                // Refresh open marker so a long-lived gate is not treated as abandoned.
+                BlockerPrefs.setUninstallGateOpen(context, true)
             }
             return
         }
@@ -182,7 +182,7 @@ class AppMonitor(private val context: Context) {
         if (wantsGate && userDismissed) {
             // Go Back while App info / installer is still in usage stats — keep gate hidden.
             wasOnProtectedScreen = true
-            if (!UninstallGateOverlay.isShowing) {
+            if (!ProtectionController.isUninstallGateShowing(context)) {
                 BlockerPrefs.clearRemovalAttemptIfSet(context)
             }
             return
@@ -191,7 +191,7 @@ class AppMonitor(private val context: Context) {
         wasOnProtectedScreen = false
         removalGuardStarted = false
         // Gate stays until password unlock or Go Back — do not auto-hide when leaving App info.
-        if (!UninstallGateOverlay.isShowing && !BlockerPrefs.isUninstallGateOpen(context)) {
+        if (!ProtectionController.isUninstallGateShowing(context)) {
             BlockerPrefs.clearRemovalAttemptIfSet(context)
         }
         if (!isDangerPackage(pkg)) {
@@ -204,31 +204,6 @@ class AppMonitor(private val context: Context) {
                 BlockOverlayWindow.show(context)
             else -> BlockOverlayWindow.hide()
         }
-    }
-
-    private fun hottestInstallerPackage(now: Long, maxAgeMs: Long = 3_000L): String? {
-        return try {
-            val stats = usageStats.queryUsageStats(
-                UsageStatsManager.INTERVAL_BEST,
-                now - 8_000,
-                now,
-            )
-            val hottest = stats
-                .filter { isInstallerPackage(it.packageName.lowercase(Locale.US)) }
-                .maxByOrNull { recency(it) } ?: return null
-            if (now - recency(hottest) > maxAgeMs) return null
-            hottest.packageName
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun recency(stat: android.app.usage.UsageStats): Long {
-        var time = stat.lastTimeUsed
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            time = maxOf(time, stat.lastTimeVisible)
-        }
-        return time
     }
 
     private fun isInstallerPackage(pkg: String): Boolean =
@@ -245,35 +220,11 @@ class AppMonitor(private val context: Context) {
 
     /** Uninstall UI hosted in System UI or the launcher (home-screen uninstall). */
     private fun isSystemUninstallUi(pkg: String, cls: String): Boolean {
-        val c = cls.lowercase(Locale.US)
-        if (!isUninstallClass(c) && !isLauncherShortcutUi(c)) return false
+        if (!isUninstallClass(cls)) return false
         return pkg.contains("systemui") ||
             isLauncherPackage(pkg) ||
             pkg.contains("packageinstaller")
     }
-
-    private fun isLauncherShortcutUi(cls: String): Boolean {
-        val c = cls.lowercase(Locale.US)
-        return c.contains("popup") ||
-            c.contains("sheet") ||
-            c.contains("menu") ||
-            c.contains("shortcut") ||
-            c.contains("dialog") ||
-            c.contains("alert") ||
-            c.contains("bottom") ||
-            c.contains("drag") ||
-            c.contains("option") ||
-            c.contains("bubble") ||
-            c.contains("drop") ||
-            c.contains("float") ||
-            c.contains("uninstall") ||
-            c.contains("delete")
-    }
-
-    private fun isUrgentUninstallScreen(pkg: String, cls: String): Boolean =
-        isInstallerPackage(pkg) ||
-            isSystemUninstallUi(pkg, cls) ||
-            (isLauncherPackage(pkg) && isLauncherShortcutUi(cls))
 
     private fun isLauncherPackage(pkg: String): Boolean =
         pkg.contains("launcher") ||
@@ -313,25 +264,25 @@ class AppMonitor(private val context: Context) {
             isRecentsPackage(pkg) ||
             pkg == context.packageName.lowercase(Locale.US)
 
-    private fun isUninstallClass(cls: String): Boolean =
-        cls.contains("uninstall") ||
-            cls.contains("uninstaller") ||
-            cls.contains("deleteapp") ||
-            cls.contains("removeapp") ||
-            cls.contains("appdelete") ||
-            cls.contains("packagedelete") ||
-            (cls.contains("dialog") && (
-                cls.contains("delete") || cls.contains("remove") || cls.contains("uninstall")
+    private fun isUninstallClass(cls: String): Boolean {
+        val c = cls.lowercase(Locale.US)
+        return c.contains("uninstall") ||
+            c.contains("uninstaller") ||
+            c.contains("deleteapp") ||
+            c.contains("removeapp") ||
+            c.contains("appdelete") ||
+            c.contains("packagedelete") ||
+            (c.contains("dialog") && (
+                c.contains("delete") || c.contains("remove") || c.contains("uninstall")
                 ))
+    }
 
     /** Installer, App info activity, uninstall dialogs — not whole Settings / launcher home. */
     private fun isRemovalFlowScreen(pkg: String, cls: String): Boolean {
         if (isInstallerPackage(pkg)) return true
         if (AppInfoGuard.isAppInfoScreenByUsage(pkg, cls)) return true
         if (isAppManagerPackage(pkg) && AppInfoGuard.isAppInfoActivityClass(cls)) return true
-        if (isLauncherPackage(pkg) && (isUninstallClass(cls) || isLauncherShortcutUi(cls))) {
-            return true
-        }
+        if (isLauncherPackage(pkg) && isUninstallClass(cls)) return true
         if (isRecentsPackage(pkg) && isUninstallClass(cls)) return true
         return false
     }
@@ -342,6 +293,8 @@ class AppMonitor(private val context: Context) {
         if (BlockerPrefs.isAppInfoUnlocked(context)) {
             return isDeviceAdminGateScreen(pkg, cls)
         }
+        // Package Installer = uninstall wizard. Gate it so the password appears instead
+        // of (and before interacting with) the confirmation UI.
         if (isInstallerPackage(pkg)) return true
         return isProtectedSystemScreen(pkg, cls)
     }
@@ -362,27 +315,20 @@ class AppMonitor(private val context: Context) {
         return cls.contains("deviceadminadd")
     }
 
-    /** Package Installer, App info (Settings / Phone Manager), uninstall dialogs. */
+    /** App info (Settings / Phone Manager) and explicit uninstall UIs — not launcher menus. */
     private fun isProtectedSystemScreen(pkg: String, cls: String): Boolean {
         if (isRemovalFlowScreen(pkg, cls)) return true
 
-        if (isLauncherPackage(pkg) && isLauncherShortcutUi(cls)) {
-            return true
-        }
-
-        if (pkg.contains("systemui") && (isUninstallClass(cls) || isLauncherShortcutUi(cls))) {
-            return true
-        }
-
+        if (pkg.contains("systemui") && isUninstallClass(cls)) return true
         if (isRecentsPackage(pkg) && isUninstallClass(cls)) return true
 
         return isDeviceAdminGateScreen(pkg, cls)
     }
 
     companion object {
-        private const val LOOKBACK_MS = 15_000L
-        private const val RECENT_INSTALLER_MS = 2_000L
-        private const val ACTIVE_MS = 30L
-        private const val IDLE_MS = 500L
+        private const val LOOKBACK_MS = 8_000L
+        private const val ACTIVE_MS = 25L
+        private const val IDLE_MS = 400L
+        private const val BRING_TO_FRONT_MS = 700L
     }
 }

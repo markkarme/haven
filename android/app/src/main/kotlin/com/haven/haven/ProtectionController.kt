@@ -64,10 +64,17 @@ object ProtectionController {
 
     fun isUninstallGateShowing(context: Context): Boolean {
         val app = context.applicationContext
-        // Process-local flags are authoritative for this process; prefs bridge `:guard` ↔ main.
-        return UninstallGateOverlay.isShowing ||
-            AppInfoGateActivity.isShowing ||
-            BlockerPrefs.isUninstallGateOpen(app)
+        if (UninstallGateOverlay.isShowing || AppInfoGateActivity.isShowing) return true
+        if (!BlockerPrefs.isUninstallGateOpen(app)) return false
+        // Prefs can linger after a crash — allow re-show once stale.
+        if (BlockerPrefs.isUninstallGateOpenStale(app) &&
+            !UninstallGateOverlay.isShowing &&
+            !AppInfoGateActivity.isShowing
+        ) {
+            BlockerPrefs.setUninstallGateOpen(app, false)
+            return false
+        }
+        return true
     }
 
     fun goHome(context: Context) {

@@ -156,11 +156,40 @@ class AppInfoGateActivity : Activity() {
                 )
             }
 
+        /** Re-order an already-open gate above Settings / installer without recreating it. */
+        fun bringToFront(context: Context) {
+            if (BlockerPrefs.isGateUserDismissed(context)) return
+            if (!BlockerPrefs.isUninstallGateOpen(context) && !isShowing) return
+            try {
+                context.applicationContext.startActivity(launchIntent(context))
+            } catch (_: Exception) {
+            }
+        }
+
         fun show(context: Context, reshow: Boolean = false, urgent: Boolean = false) {
-            if (isShowing) return
-            if (launchInFlight && !reshow) return
             val app = context.applicationContext
-            if (!BlockerPrefs.tryAcquireUninstallGateShow(app, reshow)) return
+            // Already visible in this process — just pull above App info / installer.
+            if (isShowing) {
+                bringToFront(app)
+                if (urgent) {
+                    val pending = PendingIntent.getActivity(
+                        app,
+                        NOTIFICATION_ID,
+                        launchIntent(app),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    postFullScreen(app, pending)
+                }
+                return
+            }
+            if (launchInFlight && !reshow) {
+                bringToFront(app)
+                return
+            }
+            if (!BlockerPrefs.tryAcquireUninstallGateShow(app, reshow)) {
+                bringToFront(app)
+                return
+            }
 
             launchInFlight = true
             // Mark open before startActivity so `:guard` does not spam launches.
@@ -180,7 +209,7 @@ class AppInfoGateActivity : Activity() {
             } catch (_: Exception) {
             }
 
-            // Urgent path: also fire full-screen intent so we draw over Package Installer on ColorOS.
+            // Always use full-screen intent on App info / installer — ColorOS blocks quiet starts.
             if (!launched || urgent) {
                 postFullScreen(app, pending)
             }

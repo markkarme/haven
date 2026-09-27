@@ -35,9 +35,9 @@ object UninstallGateOverlay {
     var isShowing: Boolean = false
         private set
 
-    fun show(context: Context, reshow: Boolean = false) {
+    fun show(context: Context, reshow: Boolean = false, force: Boolean = false) {
         val app = context.applicationContext
-        main.post { showOnMain(app, reshow) }
+        main.post { showOnMain(app, reshow, force) }
     }
 
     fun hide() {
@@ -45,13 +45,13 @@ object UninstallGateOverlay {
     }
 
     @SuppressLint("InflateParams")
-    private fun showOnMain(context: Context, reshow: Boolean) {
+    private fun showOnMain(context: Context, reshow: Boolean, force: Boolean) {
         if (isShowing) return
         if (!Settings.canDrawOverlays(context)) {
-            AppInfoGateActivity.show(context, reshow)
+            AppInfoGateActivity.show(context, reshow, urgent = true)
             return
         }
-        if (!BlockerPrefs.tryAcquireUninstallGateShow(context, reshow)) return
+        if (!force && !BlockerPrefs.tryAcquireUninstallGateShow(context, reshow)) return
 
         // Mark open before addView so other processes debounce correctly.
         BlockerPrefs.setUninstallGateOpen(context, true)
@@ -122,7 +122,7 @@ object UninstallGateOverlay {
             view = null
             isShowing = false
             BlockerPrefs.setUninstallGateOpen(context, false)
-            AppInfoGateActivity.show(context, reshow)
+            AppInfoGateActivity.show(context, reshow, urgent = true)
         }
     }
 
