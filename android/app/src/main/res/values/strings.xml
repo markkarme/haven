@@ -22,7 +22,7 @@
     <string name="go_back">Go Back</string>
     <string name="go_to_home">Go to Home Page</string>
     <string name="app_info_gate_title">App settings protected</string>
-    <string name="app_info_gate_message">App info for Haven is locked so it cannot be uninstalled from here.\n\nEnter the password to continue, or tap Go Back to cancel.</string>
+    <string name="app_info_gate_message">App info for Haven is locked so it cannot be uninstalled from here.\n\nGo Back closes App info and returns home — this screen stays until you enter the password.</string>
     <string name="app_info_password_hint">Password</string>
     <string name="app_info_enter_password">Enter password</string>
     <string name="app_info_wrong_password">Incorrect password</string>

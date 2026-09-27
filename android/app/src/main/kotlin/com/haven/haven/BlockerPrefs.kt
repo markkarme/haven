@@ -23,8 +23,9 @@ object BlockerPrefs {
     private const val REMOVAL_FILE = "removal_attempt"
     private const val GATE_SHOW_COOLDOWN_MS = 150L
     private const val GATE_RESHOW_COOLDOWN_MS = 100L
-    private const val GATE_USER_DISMISS_MS = 8_000L
-    private const val GATE_OPEN_STALE_MS = 45_000L
+    private const val GATE_USER_DISMISS_MS = 12_000L
+    /** Short window so a killed gate cannot block re-show for long. */
+    private const val GATE_OPEN_STALE_MS = 2_500L
 
     private fun prefs(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)

@@ -19,8 +19,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 /**
- * Password cover for uninstall / Device Admin.
- * ColorOS blocks repeat startActivity() from the background; full-screen intent is the fallback.
+ * Password cover for uninstall / Device Admin when overlay permission is missing.
+ * Sticky: system Back and leaving the screen must not dismiss it — only Go Back
+ * (home) or a correct password closes the gate.
  */
 class AppInfoGateActivity : Activity() {
 
@@ -35,12 +36,13 @@ class AppInfoGateActivity : Activity() {
         setContentView(R.layout.activity_app_info_gate)
         cancelLaunchNotification(this)
         launchInFlight = false
+        BlockerPrefs.setUninstallGateOpen(this, true)
 
         val passwordField = findViewById<EditText>(R.id.app_info_password)
         val errorView = findViewById<TextView>(R.id.app_info_error)
 
         findViewById<Button>(R.id.app_info_go_back).setOnClickListener {
-            retreatFromAppInfo()
+            ProtectionController.retreatFromAppInfoGate(this)
         }
 
         findViewById<Button>(R.id.app_info_confirm).setOnClickListener {
@@ -68,16 +70,31 @@ class AppInfoGateActivity : Activity() {
         cancelLaunchNotification(this)
     }
 
-    override fun onPause() {
-        super.onPause()
-    }
-
     override fun onDestroy() {
+        val stillNeeded = BlockerPrefs.shouldGuardAppInfo(this) &&
+            BlockerPrefs.isRemovalAttemptActive(this) &&
+            !BlockerPrefs.isAppInfoUnlocked(this) &&
+            !BlockerPrefs.isGateUserDismissed(this)
         isShowing = false
         BlockerPrefs.setUninstallGateOpen(this, false)
         launchInFlight = false
         if (instanceRef?.get() === this) instanceRef = null
         super.onDestroy()
+        // Killed from Recents / OEM — restore the gate while uninstall is still in progress.
+        if (stillNeeded) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!BlockerPrefs.isGateUserDismissed(applicationContext) &&
+                    BlockerPrefs.isRemovalAttemptActive(applicationContext) &&
+                    !BlockerPrefs.isAppInfoUnlocked(applicationContext)
+                ) {
+                    ProtectionController.showUninstallGate(
+                        applicationContext,
+                        reshow = true,
+                        urgent = true,
+                    )
+                }
+            }, 350L)
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -92,10 +109,6 @@ class AppInfoGateActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Consume — the gate cannot be dismissed with the system Back key.
-    }
-
-    private fun retreatFromAppInfo() {
-        ProtectionController.retreatFromAppInfoGate(this)
     }
 
     companion object {
@@ -139,8 +152,7 @@ class AppInfoGateActivity : Activity() {
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
                 )
             }
 
@@ -151,6 +163,8 @@ class AppInfoGateActivity : Activity() {
             if (!BlockerPrefs.tryAcquireUninstallGateShow(app, reshow)) return
 
             launchInFlight = true
+            // Mark open before startActivity so `:guard` does not spam launches.
+            BlockerPrefs.setUninstallGateOpen(app, true)
             val intent = launchIntent(app)
             val pending = PendingIntent.getActivity(
                 app,

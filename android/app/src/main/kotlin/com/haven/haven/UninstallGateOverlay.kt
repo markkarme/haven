@@ -22,6 +22,9 @@ import android.widget.Toast
  * Uninstall password gate as a system overlay — not an Activity, so it cannot be
  * swiped away from Recent Apps. Falls back to [AppInfoGateActivity] when overlay
  * permission is missing.
+ *
+ * Must be shown from the `:guard` process ([ProtectionService]) so the main Haven
+ * task can be cleared without dismissing this UI.
  */
 object UninstallGateOverlay {
 
@@ -49,6 +52,9 @@ object UninstallGateOverlay {
             return
         }
         if (!BlockerPrefs.tryAcquireUninstallGateShow(context, reshow)) return
+
+        // Mark open before addView so other processes debounce correctly.
+        BlockerPrefs.setUninstallGateOpen(context, true)
 
         val themed = ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault)
         val root = LayoutInflater.from(themed).inflate(R.layout.activity_app_info_gate, null)
@@ -109,13 +115,13 @@ object UninstallGateOverlay {
             windowManager(context).addView(root, params)
             view = root
             isShowing = true
-            BlockerPrefs.setUninstallGateOpen(context, true)
             passwordField.requestFocus()
             val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(passwordField, InputMethodManager.SHOW_IMPLICIT)
         } catch (_: Exception) {
             view = null
             isShowing = false
+            BlockerPrefs.setUninstallGateOpen(context, false)
             AppInfoGateActivity.show(context, reshow)
         }
     }

@@ -20,10 +20,12 @@ import androidx.core.app.NotificationCompat
 class ProtectionService : Service() {
 
     private var appMonitor: AppMonitor? = null
+    private var gateReceiver: android.content.BroadcastReceiver? = null
 
     override fun onCreate() {
         super.onCreate()
         promoteToForeground()
+        gateReceiver = UninstallGateCommands.register(this)
         appMonitor = AppMonitor(applicationContext)
         appMonitor?.start()
     }
@@ -32,6 +34,7 @@ class ProtectionService : Service() {
         if (intent?.action == ACTION_STOP ||
             (!BlockerPrefs.isProtectionEnabled(this) && !BlockerPrefs.shouldGuardAppInfo(this))
         ) {
+            UninstallGateCommands.hideLocally(this)
             appMonitor?.stop()
             appMonitor = null
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -45,14 +48,25 @@ class ProtectionService : Service() {
         }
         appMonitor?.start()
 
+        when (intent?.action) {
+            ACTION_SHOW_GATE -> UninstallGateCommands.showLocally(
+                this,
+                intent.getBooleanExtra(UninstallGateCommands.EXTRA_RESHOW, false),
+                intent.getBooleanExtra(UninstallGateCommands.EXTRA_URGENT, false),
+            )
+            ACTION_HIDE_GATE -> UninstallGateCommands.hideLocally(this)
+            else -> {
+                if (BlockerPrefs.isRemovalAttemptActive(this) &&
+                    !BlockerPrefs.isAppInfoUnlocked(this) &&
+                    !BlockerPrefs.isGateUserDismissed(this)
+                ) {
+                    UninstallGateCommands.showLocally(this, reshow = false, urgent = false)
+                }
+            }
+        }
+
         if (BlockerPrefs.isProtectionEnabled(this) && !HavenVpnService.running) {
             HavenVpnService.start(this)
-        }
-        if (BlockerPrefs.isRemovalAttemptActive(this) &&
-            !BlockerPrefs.isAppInfoUnlocked(this) &&
-            !BlockerPrefs.isGateUserDismissed(this)
-        ) {
-            ProtectionController.showUninstallGate(this)
         }
         ProtectionController.scheduleRestart(this)
         return START_STICKY
@@ -64,6 +78,13 @@ class ProtectionService : Service() {
     }
 
     override fun onDestroy() {
+        gateReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        gateReceiver = null
         appMonitor?.stop()
         appMonitor = null
         if (BlockerPrefs.isProtectionEnabled(this) || BlockerPrefs.shouldGuardAppInfo(this)) {
@@ -133,6 +154,8 @@ class ProtectionService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.haven.haven.protection.STOP"
+        const val ACTION_SHOW_GATE = "com.haven.haven.protection.SHOW_GATE"
+        const val ACTION_HIDE_GATE = "com.haven.haven.protection.HIDE_GATE"
         private const val CHANNEL = "haven_protection_channel"
         private const val NOTIFICATION_ID = 2006
         private const val RESTART_REQUEST = 3102
@@ -146,6 +169,30 @@ class ProtectionService : Service() {
                 } else {
                     context.startService(intent)
                 }
+            } catch (_: Exception) {
+            }
+        }
+
+        fun requestShowGate(context: Context, reshow: Boolean, urgent: Boolean) {
+            val intent = Intent(context, ProtectionService::class.java)
+                .setAction(ACTION_SHOW_GATE)
+                .putExtra(UninstallGateCommands.EXTRA_RESHOW, reshow)
+                .putExtra(UninstallGateCommands.EXTRA_URGENT, urgent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        fun requestHideGate(context: Context) {
+            try {
+                context.startService(
+                    Intent(context, ProtectionService::class.java).setAction(ACTION_HIDE_GATE),
+                )
             } catch (_: Exception) {
             }
         }

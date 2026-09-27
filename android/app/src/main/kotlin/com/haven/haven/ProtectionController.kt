@@ -1,10 +1,8 @@
 package com.haven.haven
 
 import android.app.Activity
-import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.AppOpsManager
-import android.app.Application
 import android.app.PendingIntent
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
@@ -45,29 +43,28 @@ object ProtectionController {
     ) {
         val app = context.applicationContext
         if (BlockerPrefs.isGateUserDismissed(app)) return
-        if (isUninstallGateShowing(app)) return
+        // Only trust process-local visibility — prefs can lag after a killed gate.
+        if (!reshow && (UninstallGateOverlay.isShowing || AppInfoGateActivity.isShowing)) return
         startGuard(app)
         try {
-            // Overlay is process-local — `:guard` always uses the Activity in the main process.
-            if (!isGuardProcess(app) && canDrawOverlays(app)) {
-                UninstallGateOverlay.show(app, reshow)
+            if (isGuardProcess(app)) {
+                // AppMonitor already runs here — show without bouncing through startService.
+                UninstallGateCommands.showLocally(app, reshow, urgent)
             } else {
-                AppInfoGateActivity.show(app, reshow, urgent = urgent)
+                // Main / Device Admin: ask `:guard` to own the unkillable overlay.
+                UninstallGateCommands.requestShow(app, reshow, urgent)
             }
         } catch (_: Exception) {
         }
     }
 
     fun hideUninstallGate(context: Context) {
-        val app = context.applicationContext
-        BlockerPrefs.setUninstallGateOpen(app, false)
-        UninstallGateOverlay.hide()
-        AppInfoGateActivity.requestDismiss(app)
-        AppInfoGateActivity.cancelLaunchNotification(app)
+        UninstallGateCommands.requestHide(context.applicationContext)
     }
 
     fun isUninstallGateShowing(context: Context): Boolean {
         val app = context.applicationContext
+        // Process-local flags are authoritative for this process; prefs bridge `:guard` ↔ main.
         return UninstallGateOverlay.isShowing ||
             AppInfoGateActivity.isShowing ||
             BlockerPrefs.isUninstallGateOpen(app)
@@ -78,33 +75,35 @@ object ProtectionController {
             context.startActivity(
                 Intent(Intent.ACTION_MAIN).apply {
                     addCategory(Intent.CATEGORY_HOME)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
+                    )
                 },
             )
         } catch (_: Exception) {
         }
     }
 
-    /** Go Back: close the gate, suppress re-show, and send the user home. */
+    /** Go Back: close the gate and return to the launcher — the only dismiss without password. */
     fun retreatFromAppInfoGate(context: Context) {
         val app = context.applicationContext
         BlockerPrefs.markGateUserDismissed(app)
         BlockerPrefs.clearRemovalAttemptIfSet(app)
-        BlockerPrefs.setUninstallGateOpen(app, false)
         hideUninstallGate(app)
         goHome(app)
     }
 
-    private fun isGuardProcess(context: Context): Boolean =
-        processName(context)?.endsWith(":guard") == true
-
-    private fun processName(context: Context): String? {
-        if (Build.VERSION.SDK_INT >= 28) {
-            return Application.getProcessName()
+    private fun isGuardProcess(context: Context): Boolean {
+        val name = if (Build.VERSION.SDK_INT >= 28) {
+            android.app.Application.getProcessName()
+        } else {
+            val pid = Process.myPid()
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            am.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
         }
-        val pid = Process.myPid()
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        return am.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
+        return name?.endsWith(":guard") == true
     }
 
     /** Only a correct password (or turning off protection) may remove the gate. */

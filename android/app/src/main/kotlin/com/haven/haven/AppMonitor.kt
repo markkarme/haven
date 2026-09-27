@@ -164,13 +164,17 @@ class AppMonitor(private val context: Context) {
             }
             val entering = !wasOnProtectedScreen
             wasOnProtectedScreen = true
-            if (!ProtectionController.isUninstallGateShowing(context)) {
-                val urgent = isUrgentUninstallScreen(pkg, cls)
-                ProtectionController.showUninstallGate(
-                    context,
-                    reshow = !entering,
-                    urgent = urgent,
-                )
+            // Overlay is process-local and authoritative. Activity lives in main — use prefs.
+            if (!UninstallGateOverlay.isShowing) {
+                val gateMarkedOpen = BlockerPrefs.isUninstallGateOpen(context)
+                if (!gateMarkedOpen || entering) {
+                    val urgent = isUrgentUninstallScreen(pkg, cls)
+                    ProtectionController.showUninstallGate(
+                        context,
+                        reshow = gateMarkedOpen || !entering,
+                        urgent = urgent,
+                    )
+                }
             }
             return
         }
@@ -178,7 +182,7 @@ class AppMonitor(private val context: Context) {
         if (wantsGate && userDismissed) {
             // Go Back while App info / installer is still in usage stats — keep gate hidden.
             wasOnProtectedScreen = true
-            if (!ProtectionController.isUninstallGateShowing(context)) {
+            if (!UninstallGateOverlay.isShowing) {
                 BlockerPrefs.clearRemovalAttemptIfSet(context)
             }
             return
@@ -186,8 +190,8 @@ class AppMonitor(private val context: Context) {
 
         wasOnProtectedScreen = false
         removalGuardStarted = false
-        // Gate stays until password unlock — do not auto-hide here.
-        if (!ProtectionController.isUninstallGateShowing(context)) {
+        // Gate stays until password unlock or Go Back — do not auto-hide when leaving App info.
+        if (!UninstallGateOverlay.isShowing && !BlockerPrefs.isUninstallGateOpen(context)) {
             BlockerPrefs.clearRemovalAttemptIfSet(context)
         }
         if (!isDangerPackage(pkg)) {
